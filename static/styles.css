@@ -1,0 +1,96 @@
+/* General page styling */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f7fa;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    padding: 20px 0;
+    color: #2c3e50;
+}
+
+/* Table styles */
+table {
+    width: 90%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+thead {
+    background-color: #34495e;
+    color: #fff;
+}
+
+thead th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: normal;
+}
+
+tbody td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eaeaea;
+}
+
+tbody tr:hover {
+    background-color: #f0f3f6;
+}
+
+/* Review list on property page */
+ul {
+    list-style: none;
+    padding: 0;
+    max-width: 800px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+ul li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eaeaea;
+}
+
+ul li:last-child {
+    border-bottom: none;
+}
+
+/* Buttons */
+button {
+    padding: 8px 14px;
+    background-color: #3498db;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+/* Filters section (if added later) */
+.filters {
+    max-width: 90%;
+    margin: 10px auto;
+    text-align: right;
+    padding: 10px 0;
+}
+
+.filters select, .filters input {
+    padding: 6px 10px;
+    margin-left: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}

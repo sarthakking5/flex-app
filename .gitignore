@@ -1,0 +1,37 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+vev/
+env/
+.vev/
+.env/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/editor config files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Flask uploads / static files you don’t want to track (if any)
+instance/
+uploads/
+*.db
+
+# Secrets / keys
+*.env
+.env.local
+.env.*.local
+
+# Vercel build output (optional, usually ignored)
+.vercel/

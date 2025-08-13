@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flex Living Reviews Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { margin-bottom: 10px; }
+        .filters { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+        .kpis { display:grid; grid-template-columns: repeat(4,1fr); gap:16px; margin-bottom: 20px;}
+        .kpi { background: #f7f9fc; border: 1px solid #e6ecf2; border-radius: 8px; padding: 12px 16px; }
+        .kpi-label { color: #6b7a90; font-size: 12px; margin-bottom: 4px; text-transform: uppercase; }
+        .kpi-value { font-size: 24px; font-weight: 600; color: #1f2a44; }
+        .charts { display: flex; gap: 24px; flex-wrap: wrap; }
+        .chart-card { flex: 1; min-width: 300px; }
+        .queues { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 30px;}
+        .queue { flex:1; min-width: 300px; background:#fff; border:1px solid #eee; border-radius:8px; padding:12px; }
+        .queue h3 { margin-top:0; }
+        .queue table { width:100%; border-collapse: collapse; font-size: 14px; }
+        .queue th, .queue td { border-top: 1px solid #ddd; padding:4px 6px; }
+        .btn { padding: 8px 12px; border: none; background: #3498db; color: #fff; border-radius: 5px; cursor: pointer; }
+        /* Modal styles */
+        .modal { display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+        .modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:900px; max-height:90%; overflow:auto; }
+        .modal-close { float:right; cursor:pointer; color:#999; }
+    </style>
+</head>
+<body>
+    <h1>Flex Living Reviews Dashboard</h1>
+
+    <!-- Filters -->
+    <div class="filters">
+        <label>Rating:
+            <select id="ratingFilter">
+                <option value="">All</option>
+                <option value="10">10</option>
+                <option value="9">9</option>
+                <option value="8">8</option>
+            </select>
+        </label>
+        <label>Channel:
+            <select id="channelFilter">
+                <option value="">All</option>
+                <option value="Hostaway">Hostaway</option>
+                <option value="Google">Google</option>
+            </select>
+        </label>
+        <label><input type="checkbox" id="approvedOnly"> Approved only</label>
+        <button class="btn" onclick="loadReviews()">Apply</button>
+        <button class="btn" style="background:#2ecc71;" onclick="openModal()">View All Reviews</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpis">
+        <div class="kpi"><div class="kpi-label">Average Rating</div><div class="kpi-value" id="kpiAvg">—</div></div>
+        <div class="kpi"><div class="kpi-label">Total Reviews</div><div class="kpi-value" id="kpiTotal">—</div></div>
+        <div class="kpi"><div class="kpi-label">% High Rated</div><div class="kpi-value" id="kpiHigh">—</div></div>
+        <div class="kpi"><div class="kpi-label">Approval Rate</div><div class="kpi-value" id="kpiApproval">—</div></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts">
+        <div class="chart-card">
+            <canvas id="trendsChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Queues -->
+    <div class="queues">
+        <div class="queue">
+            <h3>Needs Attention (Recent Low Ratings)</h3>
+            <table id="lowTable"><tbody></tbody></table>
+        </div>
+        <div class="queue">
+            <h3>Unapproved but Good</h3>
+            <table id="goodTable"><tbody></tbody></table>
+        </div>
+    </div>
+
+    <!-- Modal for all reviews -->
+    <div class="modal" id="allModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h3>All Reviews</h3>
+            <table id="reviewsTable"></table>
+        </div>
+    </div>
+
+    <script>
+        let allReviews = [];
+        let trendsChartInstance = null;
+        let categoryChartInstance = null;
+
+        async function loadReviews() {
+            let rating = document.getElementById("ratingFilter").value;
+            let channel = document.getElementById("channelFilter").value;
+            let approvedOnly = document.getElementById("approvedOnly").checked;
+
+            let res = await fetch(`/api/reviews/hostaway?rating=${rating}&channel=${channel}`);
+            let data = await res.json();
+            let reviews = data.reviews;
+            if (approvedOnly) reviews = reviews.filter(r => r.approved);
+            allReviews = reviews;
+
+            updateKPIs(reviews);
+            updateCharts(reviews);
+            populateQueues(reviews);
+        }
+
+        function updateKPIs(reviews) {
+            const total = reviews.length;
+            const avg = total ? (reviews.reduce((acc, r) => acc + (Number(r.overall_rating) || 0), 0) / total).toFixed(2) : "—";
+            const highRated = total ? Math.round(100 * reviews.filter(r => Number(r.overall_rating) >= 9).length / total) + "%" : "—";
+            const approvalRate = total ? Math.round(100 * reviews.filter(r => r.approved).length / total) + "%" : "—";
+            document.getElementById("kpiAvg").textContent = avg;
+            document.getElementById("kpiTotal").textContent = total;
+            document.getElementById("kpiHigh").textContent = highRated;
+            document.getElementById("kpiApproval").textContent = approvalRate;
+        }
+
+        function updateCharts(reviews) {
+            // Trends
+            const monthly = {};
+            reviews.forEach(r => {
+                const m = r.submitted_at.slice(0,7);
+                if (!monthly[m]) monthly[m] = { sum:0, count:0 };
+                monthly[m].sum += Number(r.overall_rating) || 0;
+                monthly[m].count++;
+            });
+            const months = Object.keys(monthly).sort();
+            const avgRatings = months.map(m => (monthly[m].sum / monthly[m].count).toFixed(2));
+            const counts = months.map(m => monthly[m].count);
+
+            const ctxT = document.getElementById("trendsChart").getContext("2d");
+            if (trendsChartInstance) trendsChartInstance.destroy();
+            trendsChartInstance = new Chart(ctxT, {
+                data: { labels: months,
+                    datasets: [
+                        { type: "line", label: "Avg Rating", data: avgRatings, borderColor: "#27ae60", yAxisID: "y1", tension:0.25 },
+                        { type: "bar", label: "Reviews", data: counts, backgroundColor: "#2980b9", yAxisID: "y" }
+                    ]
+                },
+                options: { scales: { y:{beginAtZero:true}, y1:{position:"right", min:0, max:10, grid:{drawOnChartArea:false}} } }
+            });
+
+            // Categories
+            const cats = {};
+            reviews.forEach(r => {
+                for (let c in (r.categories || {})) {
+                    if (!cats[c]) cats[c]={sum:0,count:0};
+                    cats[c].sum += Number(r.categories[c]) || 0;
+                    cats[c].count++;
+                }
+            });
+            const labelsC = Object.keys(cats);
+            const valuesC = labelsC.map(c => (cats[c].sum / cats[c].count).toFixed(2));
+            const ctxC = document.getElementById("categoryChart").getContext("2d");
+            if (categoryChartInstance) categoryChartInstance.destroy();
+            categoryChartInstance = new Chart(ctxC, {
+                type: "bar",
+                data: { labels: labelsC, datasets: [{ label: "Avg Category Rating", data: valuesC, backgroundColor: "#9b59b6" }] },
+                options: { scales: { y: { beginAtZero: true, max:10 } } }
+            });
+        }
+
+        function populateQueues(reviews) {
+            // Recent low ratings (last 30 days, rating <=7/10)
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate()-30);
+            let low = reviews.filter(r => Number(r.overall_rating) <= 7 && new Date(r.submitted_at) >= cutoff);
+            low.sort((a,b) => b.submitted_at.localeCompare(a.submitted_at));
+            document.querySelector("#lowTable tbody").innerHTML = low.map(r =>
+                `<tr><td>${r.listing}</td><td>${r.overall_rating}</td><td>${r.submitted_at}</td></tr>`).join("") || "<tr><td colspan=3>No recent low ratings</td></tr>";
+
+            // Unapproved but good (rating >=9/10)
+            let good = reviews.filter(r => Number(r.overall_rating) >= 9 && !r.approved);
+            good.sort((a,b) => b.overall_rating - a.overall_rating);
+            document.querySelector("#goodTable tbody").innerHTML = good.map(r =>
+                `<tr><td>${r.listing}</td><td>${r.overall_rating}</td><td><button class="btn" onclick="toggleApproval('${r.id}', true)">Approve</button></td></tr>`).join("") || "<tr><td colspan=3>No good reviews to approve</td></tr>";
+        }
+
+        function openModal() {
+            // fill modal table with all reviews
+            const tbl = document.getElementById("reviewsTable");
+            tbl.innerHTML = `<tr><th>Listing</th><th>Guest</th><th>Rating</th><th>Date</th><th>Channel</th><th>Review</th></tr>` +
+                allReviews.map(r => `<tr><td>${r.listing}</td><td>${r.guest_name||""}</td><td>${r.overall_rating}</td><td>${r.submitted_at}</td><td>${r.channel}</td><td>${r.review_text||""}</td></tr>`).join("");
+            document.getElementById("allModal").style.display = "flex";
+        }
+        function closeModal() { document.getElementById("allModal").style.display = "none"; }
+
+        async function toggleApproval(id, approved) {
+            await fetch("/api/reviews/approve", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({id: id, approved: approved})
+            });
+            loadReviews();
+        }
+
+        loadReviews();
+    </script>
+</body>
+</html>
