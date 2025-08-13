@@ -81,3 +81,12 @@ Flex App is a Flask-based web application designed as a property dashboard and r
   "guest_name": "John Doe",
   "approved": true
 }
+```
+---
+
+## Notes & Recommendations
+
+- Replace hardcoded Google API keys with environment variables.
+- Extend /dashboard for analytics like average ratings, review trends, or property occupancy.
+- Consider caching Google API responses to reduce repeated requests.
+- Future enhancement: Allow dynamic property addresses in /placesapi.
